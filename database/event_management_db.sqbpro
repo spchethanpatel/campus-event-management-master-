@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="event_management_db.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="4270"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="Admins" custom_title="0" dock_id="1" table="4,6:mainAdmins"/><dock_state state="000000ff00000000fd00000001000000020000000000000000fc0100000001fb000000160064006f0063006b00420072006f00770073006500310100000000ffffffff0000011700ffffff000000000000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="SQL 1*">PRAGMA foreign_keys = ON;
+
+-- ===== RESET =====
+DROP TABLE IF EXISTS AuditLogs;
+DROP TABLE IF EXISTS Feedback;
+DROP TABLE IF EXISTS Attendance;
+DROP TABLE IF EXISTS Registrations;
+DROP TABLE IF EXISTS Events;
+DROP TABLE IF EXISTS EventTypes;
+DROP TABLE IF EXISTS Students;
+DROP TABLE IF EXISTS Admins;
+DROP TABLE IF EXISTS Colleges;
+
+-- ===== CORE TABLES =====
+CREATE TABLE Colleges (
+    college_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    location   TEXT,
+    status     TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive'))
+);
+
+CREATE TABLE Admins (
+    admin_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    college_id INTEGER NOT NULL,
+    name       TEXT NOT NULL,
+    email      TEXT NOT NULL,
+    role       TEXT,
+    status     TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
+    UNIQUE (college_id, email),
+    FOREIGN KEY (college_id) REFERENCES Colleges(college_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE Students (
+    student_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    college_id INTEGER NOT NULL,
+    name       TEXT NOT NULL,
+    email      TEXT NOT NULL,
+    department TEXT,
+    year       TEXT,
+    status     TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
+    UNIQUE (college_id, email),
+    FOREIGN KEY (college_id) REFERENCES Colleges(college_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE EventTypes (
+    type_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name    TEXT UNIQUE NOT NULL
+);
+
+-- Seed event types
+INSERT INTO EventTypes (name) VALUES 
+('Workshop'), ('Hackathon'), ('Fest'), ('Seminar'), ('Talk'), ('Other');
+
+CREATE TABLE Events (
+    event_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    college_id  INTEGER NOT NULL,
+    title       TEXT NOT NULL,
+    description TEXT,
+    type_id     INTEGER NOT NULL,
+    venue       TEXT,
+    start_time  TEXT NOT NULL,
+    end_time    TEXT NOT NULL,
+    capacity    INTEGER NOT NULL CHECK (capacity &gt;= 0),
+    created_by  INTEGER NOT NULL,
+    semester    TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','cancelled','completed')),
+    FOREIGN KEY (college_id) REFERENCES Colleges(college_id) ON DELETE RESTRICT,
+    FOREIGN KEY (created_by) REFERENCES Admins(admin_id) ON DELETE RESTRICT,
+    FOREIGN KEY (type_id) REFERENCES EventTypes(type_id),
+    CHECK (julianday(end_time) &gt; julianday(start_time))
+);
+
+CREATE TABLE Registrations (
+    registration_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id        INTEGER NOT NULL,
+    event_id          INTEGER NOT NULL,
+    registration_time TEXT NOT NULL DEFAULT (datetime('now')),
+    status            TEXT NOT NULL DEFAULT 'registered' CHECK (status IN ('registered','cancelled')),
+    UNIQUE (student_id, event_id),
+    FOREIGN KEY (student_id) REFERENCES Students(student_id) ON DELETE RESTRICT,
+    FOREIGN KEY (event_id)   REFERENCES Events(event_id)   ON DELETE RESTRICT
+);
+
+CREATE TABLE Attendance (
+    attendance_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    registration_id INTEGER NOT NULL UNIQUE,
+    attended        INTEGER NOT NULL DEFAULT 0 CHECK (attended IN (0,1)),
+    check_in_time   TEXT,
+    FOREIGN KEY (registration_id) REFERENCES Registrations(registration_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE Feedback (
+    feedback_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    registration_id INTEGER NOT NULL UNIQUE,
+    rating          INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comments        TEXT,
+    submitted_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (registration_id) REFERENCES Registrations(registration_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE AuditLogs (
+    log_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    action      TEXT NOT NULL,
+    table_name  TEXT NOT NULL,
+    record_id   INTEGER,
+    old_data    TEXT,
+    new_data    TEXT,
+    changed_at  TEXT DEFAULT (datetime('now'))
+);
+
+-- ===== INDEXES =====
+CREATE INDEX idx_students_college      ON Students(college_id);
+CREATE INDEX idx_events_college        ON Events(college_id);
+CREATE INDEX idx_events_status         ON Events(status);
+CREATE INDEX idx_events_type           ON Events(type_id);
+CREATE INDEX idx_events_semester       ON Events(semester);
+CREATE INDEX idx_registrations_event   ON Registrations(event_id);
+CREATE INDEX idx_registrations_student ON Registrations(student_id);
+CREATE INDEX idx_attendance_reg        ON Attendance(registration_id);
+CREATE INDEX idx_feedback_reg          ON Feedback(registration_id);
+
+-- ===== TRIGGERS =====
+
+-- Admin must create/update events only in their own college
+CREATE TRIGGER trg_event_admin_college
+BEFORE INSERT ON Events
+FOR EACH ROW
+BEGIN
+  SELECT CASE
+    WHEN (SELECT college_id FROM Admins WHERE admin_id = NEW.created_by) &lt;&gt; NEW.college_id
+    THEN RAISE(ABORT, 'Admin and Event college mismatch')
+  END;
+END;
+
+-- Student can only register for events in their own college
+CREATE TRIGGER trg_registration_same_college
+BEFORE INSERT ON Registrations
+FOR EACH ROW
+BEGIN
+  SELECT CASE
+    WHEN (SELECT college_id FROM Students WHERE student_id = NEW.student_id)
+      &lt;&gt; (SELECT college_id FROM Events WHERE event_id = NEW.event_id)
+    THEN RAISE(ABORT, 'Student and Event belong to different colleges')
+  END;
+END;
+
+-- Block registrations for cancelled/completed events or past end_time
+CREATE TRIGGER trg_registration_event_status
+BEFORE INSERT ON Registrations
+FOR EACH ROW
+BEGIN
+  SELECT CASE
+    WHEN (SELECT status FROM Events WHERE event_id = NEW.event_id) IN ('cancelled','completed')
+      THEN RAISE(ABORT, 'Cannot register for closed event')
+  END;
+  SELECT CASE
+    WHEN julianday(datetime('now')) &gt; (SELECT julianday(end_time) FROM Events WHERE event_id = NEW.event_id)
+      THEN RAISE(ABORT, 'Registration closed (event ended)')
+  END;
+END;
+
+-- Capacity enforcement on insert &amp; update
+CREATE TRIGGER trg_event_capacity_check
+BEFORE INSERT ON Registrations
+FOR EACH ROW
+BEGIN
+  SELECT CASE
+    WHEN (SELECT COUNT(*) FROM Registrations WHERE event_id = NEW.event_id AND status = 'registered')
+      &gt;= (SELECT capacity FROM Events WHERE event_id = NEW.event_id)
+      THEN RAISE(ABORT, 'Event capacity reached')
+  END;
+END;
+
+CREATE TRIGGER trg_event_capacity_update
+BEFORE UPDATE OF status ON Registrations
+FOR EACH ROW
+WHEN NEW.status = 'registered'
+BEGIN
+  SELECT CASE
+    WHEN (SELECT COUNT(*) FROM Registrations WHERE event_id = OLD.event_id AND status = 'registered')
+      &gt;= (SELECT capacity FROM Events WHERE event_id = OLD.event_id)
+      THEN RAISE(ABORT, 'Event capacity reached')
+  END;
+END;
+
+-- Prevent shrinking capacity below existing registrations
+CREATE TRIGGER trg_no_capacity_below_existing
+BEFORE UPDATE OF capacity ON Events
+FOR EACH ROW
+BEGIN
+  SELECT CASE
+    WHEN NEW.capacity &lt; (SELECT COUNT(*) FROM Registrations WHERE event_id = OLD.event_id AND status='registered')
+      THEN RAISE(ABORT, 'New capacity below existing registrations')
+  END;
+END;
+
+-- Auto-complete events once end_time passes
+CREATE TRIGGER trg_auto_complete_event
+AFTER UPDATE ON Events
+FOR EACH ROW
+WHEN NEW.status = 'active' AND julianday('now') &gt; julianday(NEW.end_time)
+BEGIN
+  UPDATE Events SET status='completed' WHERE event_id=NEW.event_id;
+END;
+
+-- Feedback only if attended &amp; event completed
+CREATE TRIGGER trg_feedback_requires_attendance
+BEFORE INSERT ON Feedback
+FOR EACH ROW
+BEGIN
+  SELECT CASE
+    WHEN NOT EXISTS (SELECT 1 FROM Attendance a WHERE a.registration_id=NEW.registration_id AND a.attended=1)
+      THEN RAISE(ABORT, 'Feedback allowed only for attendees')
+  END;
+
+  SELECT CASE
+    WHEN (SELECT e.status
+          FROM Events e
+          JOIN Registrations r ON e.event_id=r.event_id
+          WHERE r.registration_id=NEW.registration_id) &lt;&gt; 'completed'
+      THEN RAISE(ABORT, 'Feedback only after event completion')
+  END;
+END;
+
+-- ===== AUDIT LOGGING =====
+-- Full audit for INSERT, UPDATE, DELETE
+CREATE TRIGGER trg_audit_insert
+AFTER INSERT ON Events
+FOR EACH ROW
+BEGIN
+  INSERT INTO AuditLogs(action, table_name, record_id, new_data)
+  VALUES('INSERT','Events',NEW.event_id,NEW.title);
+END;
+
+CREATE TRIGGER trg_audit_update
+AFTER UPDATE ON Events
+FOR EACH ROW
+BEGIN
+  INSERT INTO AuditLogs(action, table_name, record_id, old_data, new_data)
+  VALUES('UPDATE','Events',NEW.event_id,OLD.title,NEW.title);
+END;
+
+CREATE TRIGGER trg_audit_delete
+AFTER DELETE ON Events
+FOR EACH ROW
+BEGIN
+  INSERT INTO AuditLogs(action, table_name, record_id, old_data)
+  VALUES('DELETE','Events',OLD.event_id,OLD.title);
+END;
+
+
+
+
+
+
+</sql><current_tab id="0"/></tab_sql></sqlb_project>
