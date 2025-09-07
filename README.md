@@ -1,128 +1,123 @@
-# Campus Event Management System
+Campus Event Management System
 
-A comprehensive event management system designed for educational institutions to manage campus events, student registrations, and administrative tasks.
+Hey! This is my project for managing campus events. I built it mainly for colleges to manage events, registrations, and keep track of everything in one place.
 
-## 🚧 Project Status
+✅ What’s Done So Far
 
-**Current Status**: Database design and backend implementation completed, UI development in progress.
+Database: I created a SQLite database with all the tables we need.
 
-### ✅ Completed Components
-- **Database Design**: Complete SQLite database with comprehensive schema
-- **Backend API**: Full REST API implementation with FastAPI
-- **Authentication**: Student and teacher authentication systems
-- **Core Features**: Event management, registration, attendance tracking
-- **Multi-College Support**: Scalable architecture for multiple institutions
+Backend API: Built using FastAPI for handling requests.
 
-### 🔄 In Progress
-- **Frontend UI**: React-based user interface (partially implemented)
-- **UI Polish**: Complete responsive design and user experience
+Authentication: Students and teachers can log in securely.
 
-## 🏗️ Architecture
+Core Features: Event management, registration, and attendance tracking.
 
-### Backend (Python/FastAPI)
-- **Database**: SQLite with comprehensive schema
-- **API**: RESTful endpoints for all operations
-- **Authentication**: JWT-based authentication
-- **Features**: Event management, registration, attendance, feedback, reporting
+Multi-College Support: Can handle multiple colleges in the same system 
 
-### Frontend (React/TypeScript)
-- **Framework**: React with TypeScript
-- **Styling**: Tailwind CSS
-- **State Management**: React hooks
-- **Components**: Modular UI components
 
-### Database Schema
-- **Colleges**: Multi-tenant support
-- **Users**: Students, teachers, admins
-- **Events**: Comprehensive event management
-- **Registrations**: Student event participation
-- **Attendance**: Event attendance tracking
-- **Feedback**: Event feedback system
+🏗️ How It’s Built
+Backend
 
-## 🚀 Quick Start
+Language/Framework: Python + FastAPI
 
-### Backend Setup
-```bash
+Database: SQLite
+
+Authentication: JWT-based
+
+Features: Event management, registration, attendance, feedback, and reporting
+
+Frontend
+
+Framework: React + TypeScript
+
+Styling: Tailwind CSS
+
+State Management: React hooks
+
+Components: Modular, reusable components
+
+Database Structure
+
+Colleges: Multi-tenant support
+
+Users: Students, teachers, admins
+
+Events: All event info
+
+Registrations: Student participation
+
+Attendance: Track who attended
+
+Feedback: Collect student feedback
+
+🚀 Quick Start
+Backend
 cd backend
 pip install -r requirements.txt
 python main.py
-```
 
-### Frontend Setup
-```bash
+Frontend
 cd frontend
 npm install
 npm run dev
-```
 
-### Database
-The SQLite database is included with sample data and can be found in the `database/` directory.
+Database
 
-## 📁 Project Structure
+The SQLite database is already included with some sample data. You’ll find it in the database/ folder.
 
-```
+📁 Project Structure
 ├── backend/                 # FastAPI backend
-│   ├── routers/            # API route handlers
+│   ├── routers/            # API routes
 │   ├── models.py           # Database models
 │   ├── schemas.py          # Pydantic schemas
-│   └── main.py             # Application entry point
+│   └── main.py             # Entry point
 ├── frontend/               # React frontend
 │   ├── src/
 │   │   ├── components/     # UI components
-│   │   ├── pages/          # Page components
+│   │   ├── pages/          # Pages
 │   │   └── services/       # API services
-├── database/               # SQLite database files
-└── README.md              # This file
-```
+├── database/               # SQLite database
+└── README.md               # This file
 
-## 🔧 Features
+👨‍🎓 Features
+For Students
 
-### For Students
-- Event browsing and registration
-- Personal dashboard
-- Attendance tracking
-- Feedback submission
+Browse events and register
 
-### For Teachers
-- Event creation and management
-- Student registration management
-- Attendance tracking
-- Analytics and reports
+See personal dashboard
 
-### For Administrators
-- Multi-college management
-- User management
-- System analytics
-- Data export capabilities
+Track attendance
 
-## 📊 Database Features
+Give feedback
 
-- **Multi-tenant architecture** for multiple colleges
-- **Comprehensive constraints** for data integrity
-- **Automated triggers** for data validation
-- **Scalable design** for large institutions
+For Teachers
 
-## 🛠️ Development Notes
+Create/manage events
 
-The project follows modern development practices:
-- Clean code architecture
-- Comprehensive error handling
-- Database optimization
-- API documentation
-- Modular frontend components
+Manage student registrations
 
-## 📝 Next Steps
+Track attendance
 
-1. Complete frontend UI implementation
-2. Add responsive design
-3. Implement advanced analytics
-4. Add mobile app support
-5. Deploy to production
+View analytics and reports
 
-## 🤝 Contributing
+For Admins
 
-This project is currently in active development. The database and backend are production-ready, with the frontend UI being the primary focus for completion.
+Manage multiple colleges
 
----
+Manage users
 
-**Repository**: [https://github.com/SpMonish84/Campus_Event_Management](https://github.com/SpMonish84/Campus_Event_Management)
+Check system stats
+
+Export data
+
+🛠️ Notes from Me
+
+Tried to follow clean code practices
+
+Added error handling where possible
+
+Made database optimized for queries
+
+Frontend is modular, so adding new pages is easy
+
+Backend has API docs at /docs
